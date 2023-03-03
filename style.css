@@ -1,0 +1,55 @@
+html,
+body {
+    overflow: hidden;
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    background: #000;
+}
+
+.hidden {
+    display: none;
+}
+
+iframe {
+    border: none;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    display: flex;
+    flex-direction: row;
+}
+
+#monaco-editor {
+    width: 50vw;
+    height: 100vh;
+}
+
+#preview {
+    width: 50vw;
+    height: 100vh;
+    border: none;
+}
+
+.monaco-editor-container {
+    position: relative;
+}
+
+.error-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 10px 24px 10px 10px;
+    padding: 10px;
+    color: #f85149;
+    border: 1px solid #f85149;
+    background: #1e1e1e;
+}
