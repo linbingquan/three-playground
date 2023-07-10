@@ -1,11 +1,3 @@
-const importMap = {
-  "imports": {
-    "three": "https://unpkg.com/three@0.150.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.150.0/examples/jsm/",
-    "three/": "https://unpkg.com/three@0.150.0/",
-  },
-};
-
 const basicCode = `import * as THREE from "three"
 import { OrbitControls } from "three/addons/controls/OrbitControls.js"
 
@@ -47,7 +39,7 @@ window.addEventListener("resize", () => {
     renderer.setSize(innerWidth, innerHeight);
 });`;
 
-const createHtml = (javascript) =>
+const createHtml = ({ importMap, javascript }) =>
   `<!DOCTYPE html>
 <html lang="en">
 
@@ -69,7 +61,7 @@ const createHtml = (javascript) =>
 <body>
     <!-- Import maps polyfill -->
     <!-- Remove this when import maps will be widely supported -->
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"><\/script>
+    <script async src="https://unpkg.com/es-module-shims@latest/dist/es-module-shims.js"><\/script>
     <script type="importmap">
 ${JSON.stringify(importMap, null, 4)}
     <\/script>
@@ -80,11 +72,39 @@ ${javascript}
 
 </html>`;
 
+const iframe = document.querySelector("iframe");
+const container = document.querySelector(".error-container");
+
+const versions = await getVersions();
+const latest = versions[0];
+createRevision(versions);
+const latestImportMap = createImportMap(latest);
+let selectImportMap = latestImportMap;
+
 const editor = monaco.editor.create(document.getElementById("monaco-editor"), {
   value: [`${basicCode}`].join("\n"),
   language: "javascript",
   theme: "vs-dark",
 });
+
+preview({ javascript: editor.getValue(), importMap: latestImportMap });
+
+function createImportMap(number) {
+  const version = `0.${number}.0`;
+  return {
+    "imports": {
+      "three": `https://unpkg.com/three@${version}/build/three.module.js`,
+      "three/addons/": `https://unpkg.com/three@${version}/examples/jsm/`,
+      "three/": `https://unpkg.com/three@${version}/`,
+    },
+  };
+}
+
+async function getVersions() {
+  return await fetch("https://api.github.com/repos/mrdoob/three.js/releases")
+    .then((res) => res.json())
+    .then((item) => item.map(({ tag_name }) => tag_name.split("r")[1]));
+}
 
 let timer;
 
@@ -94,17 +114,35 @@ editor.onDidChangeModelContent(function (e) {
   timer = setTimeout(() => {
     container.classList.add("hidden");
 
-    preview(editor);
+    preview({ javascript: editor.getValue(), importMap: selectImportMap });
   }, 500);
 });
 
-const iframe = document.querySelector("iframe");
-const container = document.querySelector(".error-container");
+async function createRevision(versions) {
+  const select = document.createElement("select");
+  select.onchange = (e) => {
+    const number = e.target.value;
+    selectImportMap = createImportMap(number);
+    preview({ javascript: editor.getValue(), importMap: selectImportMap });
+  };
+  versions.forEach((item) => {
+    const number = item.replace("r", "");
+    const option = document.createElement("option");
+    option.value = number;
+    option.innerText = `r${number}`;
+    select.appendChild(option);
+  });
 
-preview(editor);
+  const revision = document.createElement("div");
+  revision.innerText = "REVISION: ";
+  revision.classList.add("revision");
+  revision.appendChild(select);
 
-function preview(editor) {
-  const html = createHtml(editor.getValue());
+  document.body.appendChild(revision);
+}
+
+function preview({ javascript, importMap }) {
+  const html = createHtml({ javascript, importMap });
   const blob = new Blob([html], { "type": "text/html" });
   iframe.src = URL.createObjectURL(blob);
 }
@@ -113,15 +151,14 @@ window.addEventListener("resize", () => editor.layout());
 
 function createError(data) {
   const fragment = document.createDocumentFragment();
-  const pre = document.createElement("pre");
 
   if (Array.isArray(data)) {
-    for (let i = 0; i < data.length; i++) {
-      const div = document.createElement("div");
-      div.innerText = data[i];
-      fragment.appendChild(div);
-    }
+    data.forEach((error) => appendChild(error));
   } else {
+    appendChild(data);
+  }
+
+  function appendChild(data) {
     const div = document.createElement("div");
     div.innerText = data;
     fragment.appendChild(div);
